@@ -1,0 +1,26 @@
+
+
+/**
+ * Unary ALU.
+ * Computes one of the following:
+ * 0, x, !x, -1
+ */
+// Implementation: the Unary ALU logic manipulates the input x
+// as follows:
+// if (zx == 1) set x = 0        // 16-bit constant
+// if (nx == 1) set x = !x       // bitwise not
+
+CHIP UnaryALU {
+    IN
+        x[16],  // 16-bit input
+        zx, // zero the x input?
+        nx; // negate the x input?
+
+    OUT
+        out[16]; // 16-bit output
+
+    PARTS:
+        Mux16(sel=zx, a=x, b=false, out=zerox);
+        Not16(in=zerox, out=notzerox);
+        Mux16(sel=nx, a=zerox, b=notzerox, out=out);
+}
