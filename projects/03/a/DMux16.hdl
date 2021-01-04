@@ -1,0 +1,28 @@
+/** 
+ * 16-bit demultiplexor:
+ * for i = 0..15 {a[i], b[i]} = {in[i], 0} if sel == 0
+ *                              {0, in[i]} if sel == 1
+ */
+
+CHIP DMux16 {
+    IN in[16], sel;
+    OUT a[16], b[16];
+
+    PARTS:
+    DMux(in=in[00], sel=sel, a=a[00], b=b[00]);
+    DMux(in=in[01], sel=sel, a=a[01], b=b[01]);
+    DMux(in=in[02], sel=sel, a=a[02], b=b[02]);
+    DMux(in=in[03], sel=sel, a=a[03], b=b[03]);
+    DMux(in=in[04], sel=sel, a=a[04], b=b[04]);
+    DMux(in=in[05], sel=sel, a=a[05], b=b[05]);
+    DMux(in=in[06], sel=sel, a=a[06], b=b[06]);
+    DMux(in=in[07], sel=sel, a=a[07], b=b[07]);
+    DMux(in=in[08], sel=sel, a=a[08], b=b[08]);
+    DMux(in=in[09], sel=sel, a=a[09], b=b[09]);
+    DMux(in=in[10], sel=sel, a=a[10], b=b[10]);
+    DMux(in=in[11], sel=sel, a=a[11], b=b[11]);
+    DMux(in=in[12], sel=sel, a=a[12], b=b[12]);
+    DMux(in=in[13], sel=sel, a=a[13], b=b[13]);
+    DMux(in=in[14], sel=sel, a=a[14], b=b[14]);
+    DMux(in=in[15], sel=sel, a=a[15], b=b[15]);
+}
