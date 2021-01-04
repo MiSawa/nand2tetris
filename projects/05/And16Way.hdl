@@ -1,0 +1,22 @@
+CHIP And16Way {
+    IN
+        in[16];
+    OUT
+        out;
+    PARTS:
+        And(a=in[00], b=in[01], out=x00);
+        And(a=in[02], b=in[03], out=x01);
+        And(a=in[04], b=in[05], out=x02);
+        And(a=in[06], b=in[07], out=x03);
+        And(a=in[08], b=in[09], out=x04);
+        And(a=in[10], b=in[11], out=x05);
+        And(a=in[12], b=in[13], out=x06);
+        And(a=in[14], b=in[15], out=x07);
+        And(a=x00,    b=x01,    out=y00);
+        And(a=x02,    b=x03,    out=y01);
+        And(a=x04,    b=x05,    out=y02);
+        And(a=x06,    b=x07,    out=y03);
+        And(a=y00,    b=y01,    out=z00);
+        And(a=y02,    b=y03,    out=z01);
+        And(a=z00,    b=z01,    out=out);
+}

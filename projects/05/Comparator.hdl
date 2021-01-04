@@ -1,0 +1,16 @@
+CHIP Comparator {
+    IN
+        zr,
+        ng,
+        flags[3];
+    OUT
+        out;
+    PARTS:
+        And(a=ng, b=flags[2], out=ltflg);
+        And(a=zr, b=flags[1], out=eqflg);
+        Or(a=zr, b=ng, out=isNonPos);
+        Not(in=isNonPos, out=ispos);
+        And(a=ispos, b=flags[0], out=gtflg);
+        Or(a=ltflg, b=gtflg, out=tmp);
+        Or(a=tmp, b=eqflg, out=out);
+}

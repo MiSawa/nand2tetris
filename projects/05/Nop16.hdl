@@ -1,0 +1,7 @@
+CHIP Nop16 {
+  IN in[16];
+  OUT out[16];
+  PARTS:
+    Not16(in=in, out=tmp);
+    Not16(in=tmp, out=out);
+}

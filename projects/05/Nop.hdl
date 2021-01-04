@@ -1,0 +1,7 @@
+CHIP Nop {
+  IN in;
+  OUT out;
+  PARTS:
+    Not(in=in, out=tmp);
+    Not(in=tmp, out=out);
+}

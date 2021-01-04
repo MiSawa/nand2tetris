@@ -1,0 +1,35 @@
+CHIP Decoder {
+    IN
+        in[16];
+    OUT
+        isCInstruction,
+        // In case of A-instruction
+        value[15],
+        // In case of C-instruction
+        addressing,
+        // comp[6],
+        zx, nx, zy, ny, f, no,
+        destA,
+        destD,
+        destM,
+        jump[3];
+    PARTS:
+        Nop16(
+            in=in,
+            out[0..14]=value,
+            out[12]=addressing,
+            //out[6..11]=comp,
+            out[5]=destA,
+            out[4]=destD,
+            out[3]=destM,
+            out[0..2]=jump,
+            out[15]=isCInstruction,
+            out[11]=zy,
+            out[10]=ny,
+            out[9]=zx,
+            out[8]=nx,
+            out[7]=f,
+            out[6]=no
+        );
+}
+
