@@ -1,0 +1,11 @@
+[package]
+name = "nand2tetris"
+version = "0.1.0"
+authors = ["mi_sawa <mi.sawa.1216+git@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+regex = "1.4.2"
+once_cell = "1.5.2"
+anyhow = "1.0"
+enumset = "1.0.1"
