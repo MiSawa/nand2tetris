@@ -1,4 +1,5 @@
 use crate::ir::{Arithmetic, Command, MemoryAccess, Segment};
+use anyhow::{anyhow, ensure, Result};
 
 pub struct Translator {
     translated_code: Vec<String>,
@@ -6,12 +7,7 @@ pub struct Translator {
 }
 impl Translator {
     fn prelude() -> Vec<&'static str> {
-        vec![
-            "@256",
-            "D=A",
-            "@SP",
-            "M=D",
-        ]
+        vec!["@256", "D=A", "@SP", "M=D"]
     }
     pub fn new() -> Self {
         let mut ret = Translator {
@@ -62,47 +58,105 @@ impl Translator {
         }
     }
 
-    fn add_memory_access(&mut self, memory_access: &MemoryAccess) {
+    fn add_push_const(&mut self, ptr: u16) {
+        self.add_assembly(&[format!("@{}", ptr)]);
+        self.add_assembly(&["D=M", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
+    }
+
+    fn add_push(&mut self, symbol: &str, index: u16) {
+        self.add_assembly(&[format!("@{}", index)]);
+        self.add_assembly(&["D=A"]);
+        self.add_assembly(&[format!("@{}", symbol)]);
+        self.add_assembly(&["A=M+D", "D=M", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
+    }
+
+    fn add_pop_const(&mut self, ptr: u16) {
+        self.add_assembly(&["@SP", "AM=M-1", "D=M"]);
+        self.add_assembly(&[format!("@{}", ptr)]);
+        self.add_assembly(&["M=D"]);
+    }
+
+    fn add_pop(&mut self, symbol: &str, index: u16) {
+        self.add_assembly(&[format!("@{}", index)]);
+        self.add_assembly(&["D=A"]);
+        self.add_assembly(&[format!("@{}", symbol)]);
+        self.add_assembly(&["M=M+D"]);
+
+        self.add_assembly(&["@SP", "AM=M-1", "D=M"]);
+        self.add_assembly(&[format!("@{}", symbol)]);
+        self.add_assembly(&["A=M", "M=D"]);
+
+        self.add_assembly(&[format!("@{}", index)]);
+        self.add_assembly(&["D=A"]);
+        self.add_assembly(&[format!("@{}", symbol)]);
+        self.add_assembly(&["M=M-D"]);
+    }
+
+    fn add_memory_access(&mut self, memory_access: &MemoryAccess) -> Result<()> {
         match memory_access {
             MemoryAccess::Push { segment, index } => match segment {
-                Segment::Argument => todo!(),
-                Segment::Local => todo!(),
-                Segment::Static => todo!(),
+                Segment::Argument => self.add_push("ARG", *index),
+                Segment::Local => self.add_push("LCL", *index),
+                Segment::Static => {
+                    // FIXME
+                    ensure!(index < &240, "Too many static variables");
+                    self.add_push_const(16 + index);
+                }
                 Segment::Constant => {
                     self.add_assembly(&[format!("@{}", index)]);
                     self.add_assembly(&["D=A", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
                 }
-                Segment::This => todo!(),
-                Segment::That => todo!(),
-                Segment::Pointer => todo!(),
-                Segment::Temp => todo!(),
+                Segment::This => self.add_push("THIS", *index),
+                Segment::That => self.add_push("THAT", *index),
+                Segment::Pointer => {
+                    ensure!(index < &2);
+                    self.add_push_const(3 + index);
+                }
+                Segment::Temp => {
+                    ensure!(index < &8);
+                    self.add_push_const(5 + index);
+                }
             },
             MemoryAccess::Pop { segment, index } => match segment {
-                Segment::Argument => todo!(),
-                Segment::Local => todo!(),
-                Segment::Static => todo!(),
-                Segment::Constant => todo!(),
-                Segment::This => todo!(),
-                Segment::That => todo!(),
-                Segment::Pointer => todo!(),
-                Segment::Temp => todo!(),
+                Segment::Argument => self.add_pop("ARG", *index),
+                Segment::Local => self.add_pop("LCL", *index),
+                Segment::Static => {
+                    // FIXME
+                    ensure!(index < &240, "Too many static variables");
+                    self.add_pop_const(16 + index);
+                }
+                Segment::Constant => return Err(anyhow!("Unable to pop to {:?}", memory_access)),
+                Segment::This => self.add_pop("THIS", *index),
+                Segment::That => self.add_pop("THAT", *index),
+                Segment::Pointer => {
+                    ensure!(index < &2);
+                    self.add_pop_const(3 + index);
+                }
+                Segment::Temp => {
+                    ensure!(index < &8);
+                    self.add_pop_const(5 + index);
+                }
             },
         }
+        Ok(())
     }
 
-    fn add_command(&mut self, command: &Command) {
+    fn add_command(&mut self, command: &Command) -> Result<()> {
         match command {
             Command::Arithmetic(arithmetic) => self.add_arithmetic(arithmetic),
-            Command::MemoryAccess(memory_access) => self.add_memory_access(memory_access),
+            Command::MemoryAccess(memory_access) => self.add_memory_access(memory_access)?,
             Command::ProgramFlow(_program_flow) => todo!(),
             Command::FunctionCall(_function_call) => todo!(),
         }
+        Ok(())
     }
 
-    pub fn add_commands(&mut self, commands: &Vec<Command>) {
+    pub fn add_commands(&mut self, commands: &Vec<Command>) -> Result<()> {
         for command in commands {
-            self.add_command(command);
+            self.add_assembly(&[format!("// {:?}", command)]);
+            self.add_command(command)?;
         }
+        Ok(())
     }
 
     pub fn get_assembly(self) -> Vec<String> {
@@ -128,8 +182,10 @@ mod test {
         "#
             .as_bytes(),
         )?;
-        let translated = Translator::add_commands(&commands);
-        println!("{:?}", translated);
+        let mut translator = Translator::new();
+        translator.add_commands(&commands)?;
+        let translated = translator.get_assembly();
+        // println!("{:?}", translated);
         Ok(())
     }
 }
