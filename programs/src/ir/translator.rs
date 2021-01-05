@@ -58,8 +58,8 @@ impl Translator {
         }
     }
 
-    fn add_push_const(&mut self, ptr: u16) {
-        self.add_assembly(&[format!("@{}", ptr)]);
+    fn add_push_const<C: ToString>(&mut self, ptr: C) {
+        self.add_assembly(&[format!("@{}", ptr.to_string())]);
         self.add_assembly(&["D=M", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
     }
 
@@ -70,9 +70,9 @@ impl Translator {
         self.add_assembly(&["A=M+D", "D=M", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
     }
 
-    fn add_pop_const(&mut self, ptr: u16) {
+    fn add_pop_const<C: ToString>(&mut self, ptr: C) {
         self.add_assembly(&["@SP", "AM=M-1", "D=M"]);
-        self.add_assembly(&[format!("@{}", ptr)]);
+        self.add_assembly(&[format!("@{}", ptr.to_string())]);
         self.add_assembly(&["M=D"]);
     }
 
@@ -92,16 +92,12 @@ impl Translator {
         self.add_assembly(&["M=M-D"]);
     }
 
-    fn add_memory_access(&mut self, memory_access: &MemoryAccess) -> Result<()> {
+    fn add_memory_access(&mut self, class: &str, memory_access: &MemoryAccess) -> Result<()> {
         match memory_access {
             MemoryAccess::Push { segment, index } => match segment {
                 Segment::Argument => self.add_push("ARG", *index),
                 Segment::Local => self.add_push("LCL", *index),
-                Segment::Static => {
-                    // FIXME
-                    ensure!(index < &240, "Too many static variables");
-                    self.add_push_const(16 + index);
-                }
+                Segment::Static => self.add_push_const(format!("{}.{}", class, index)),
                 Segment::Constant => {
                     self.add_assembly(&[format!("@{}", index)]);
                     self.add_assembly(&["D=A", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
@@ -120,11 +116,7 @@ impl Translator {
             MemoryAccess::Pop { segment, index } => match segment {
                 Segment::Argument => self.add_pop("ARG", *index),
                 Segment::Local => self.add_pop("LCL", *index),
-                Segment::Static => {
-                    // FIXME
-                    ensure!(index < &240, "Too many static variables");
-                    self.add_pop_const(16 + index);
-                }
+                Segment::Static => self.add_pop_const(format!("{}.{}", class, index)),
                 Segment::Constant => return Err(anyhow!("Unable to pop to {:?}", memory_access)),
                 Segment::This => self.add_pop("THIS", *index),
                 Segment::That => self.add_pop("THAT", *index),
@@ -141,20 +133,21 @@ impl Translator {
         Ok(())
     }
 
-    fn add_command(&mut self, command: &Command) -> Result<()> {
+    fn add_command(&mut self, class: &str, command: &Command) -> Result<()> {
         match command {
             Command::Arithmetic(arithmetic) => self.add_arithmetic(arithmetic),
-            Command::MemoryAccess(memory_access) => self.add_memory_access(memory_access)?,
+            Command::MemoryAccess(memory_access) => self.add_memory_access(class, memory_access)?,
             Command::ProgramFlow(_program_flow) => todo!(),
             Command::FunctionCall(_function_call) => todo!(),
         }
         Ok(())
     }
 
-    pub fn add_commands(&mut self, commands: &Vec<Command>) -> Result<()> {
+    pub fn add_commands(&mut self, class: &str, commands: &Vec<Command>) -> Result<()> {
+        self.add_assembly(&[format!("// -- Class: {} --", class)]);
         for command in commands {
             self.add_assembly(&[format!("// {:?}", command)]);
-            self.add_command(command)?;
+            self.add_command(class, command)?;
         }
         Ok(())
     }
@@ -183,8 +176,8 @@ mod test {
             .as_bytes(),
         )?;
         let mut translator = Translator::new();
-        translator.add_commands(&commands)?;
-        let translated = translator.get_assembly();
+        translator.add_commands("test", &commands)?;
+        let _translated = translator.get_assembly();
         // println!("{:?}", translated);
         Ok(())
     }

@@ -60,7 +60,12 @@ fn main() -> Result<()> {
             .map(BufReader::new)
             .with_context(|| format!("Unable to open file {}", path.to_string_lossy()))?;
         let parsed = Parser::parse(vm)?;
-        translator.add_commands(&parsed)?;
+        let class = path.file_name()
+            .with_context(|| anyhow!("Unable to get file name from {}", path.to_string_lossy()))?
+            .to_str()
+            .with_context(|| anyhow!("Unable to stringify file name {}", path.to_string_lossy()))?
+            .trim_end_matches(VM_EXT);
+        translator.add_commands(class, &parsed)?;
     }
     let ret = translator.get_assembly();
     let mut output_file = File::create(&output_path)
