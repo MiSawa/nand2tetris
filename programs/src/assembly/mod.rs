@@ -4,8 +4,6 @@ pub mod assembler;
 pub mod parser;
 mod symbol_table;
 
-pub enum Location {}
-
 #[derive(EnumSetType, Debug)]
 pub enum Dest {
     A = 2,

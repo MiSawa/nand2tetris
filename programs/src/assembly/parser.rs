@@ -1,4 +1,5 @@
 use crate::assembly::{Condition, Dest, Instruction, Operation, UnresolvedInstruction};
+use crate::regex;
 use anyhow::{anyhow, ensure, Context, Result};
 use enumset::EnumSet;
 use once_cell;
@@ -7,13 +8,6 @@ use std::collections::HashMap;
 use std::io::BufRead;
 
 pub struct Parser();
-
-macro_rules! regex {
-    ($re:literal $(,)?) => {{
-        static RE: once_cell::sync::OnceCell<regex::Regex> = once_cell::sync::OnceCell::new();
-        RE.get_or_init(|| regex::Regex::new($re).unwrap())
-    }};
-}
 
 impl Parser {
     fn check_symbol(s: &str) -> bool {
@@ -106,6 +100,7 @@ impl Parser {
             table.insert("D-1", EnumSet::from_u8(0b001110));
             table.insert("A-1", EnumSet::from_u8(0b110010));
             table.insert("D+A", EnumSet::from_u8(0b000010));
+            table.insert("A+D", EnumSet::from_u8(0b000010));
             table.insert("D-A", EnumSet::from_u8(0b010011));
             table.insert("A-D", EnumSet::from_u8(0b000111));
             table.insert("D&A", EnumSet::from_u8(0b000000));
@@ -115,10 +110,10 @@ impl Parser {
             table
         });
         let non_addressing = arg.replace('M', "A");
-        let mut ret = table
+        let ret = table
             .get(non_addressing.as_str())
-            .with_context(|| format!("Unknown operation `{}`", arg))?
-            .clone();
+            .with_context(|| format!("Unknown operation `{}`", arg))?;
+        let mut ret = (*ret).clone();
         if arg.contains('M') {
             ret.insert(Operation::A);
         }
