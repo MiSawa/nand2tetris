@@ -1,0 +1,17 @@
+class Main {
+    function void main() {
+        var Sieve sieve;
+        var int i;
+        let sieve = Sieve.new(100);
+        let i = 0;
+        while (i < 100) {
+            if (sieve.isPrime(i)) {
+                do Output.printInt(i);
+                do Output.println();
+            }
+            let i = i + 1;
+        }
+        do sieve.dispose();
+        return;
+    }
+}

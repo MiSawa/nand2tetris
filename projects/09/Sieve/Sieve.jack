@@ -1,0 +1,34 @@
+class Sieve {
+    field int size;
+    field Array flg;
+    constructor Sieve new(int n) {
+        var int i, j;
+        let flg = Memory.alloc(n + 1);
+        let flg[0] = false;
+        let flg[1] = false;
+        let i = 2;
+        while (~(i > n)) {
+            let flg[i] = true;
+            let i = i + 1;
+        }
+        let i = 2;
+        while (~(i > n)) {
+            if (flg[i]) {
+                let j = i + i;
+                while (~(j > n)) {
+                    let flg[j] = false;
+                    let j = j + i;
+                }
+            }
+            let i = i + 1;
+        }
+        return this;
+    }
+    method void dispose() {
+        do Memory.deAlloc(flg);
+        return;
+    }
+    method bool isPrime(int p) {
+        return flg[p];
+    }
+}
