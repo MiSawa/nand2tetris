@@ -1,4 +1,5 @@
-use anyhow::anyhow;
+use crate::regex;
+use anyhow::{anyhow, ensure};
 use std::str::FromStr;
 
 pub mod parser;
@@ -45,9 +46,9 @@ pub struct Symbol(String);
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ProgramFlow {
-    Label { symbol: Symbol },
-    Goto { symbol: Symbol },
-    IfGoto { symbol: Symbol },
+    Label { label: Symbol },
+    Goto { label: Symbol },
+    IfGoto { label: Symbol },
 }
 
 #[derive(Debug, Eq, PartialEq)]
@@ -86,6 +87,20 @@ impl From<FunctionCall> for Command {
     }
 }
 
+impl FromStr for Symbol {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        let label_pattern = regex!("^[a-zA-Z_.:][0-9a-zA-Z_.:]*$");
+        ensure!(
+            label_pattern.is_match(s),
+            "String `{}` is invalid as a label",
+            s
+        );
+        Ok(Symbol(s.to_owned()))
+    }
+}
+
 impl FromStr for Segment {
     type Err = anyhow::Error;
 
@@ -105,6 +120,7 @@ impl FromStr for Segment {
         Ok(ret)
     }
 }
+
 impl ToString for Segment {
     fn to_string(&self) -> String {
         match self {
@@ -120,6 +136,7 @@ impl ToString for Segment {
         .to_owned()
     }
 }
+
 impl ToString for MemoryAccess {
     fn to_string(&self) -> String {
         match self {

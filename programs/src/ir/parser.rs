@@ -1,5 +1,5 @@
 use crate::common::trim_line_comment;
-use crate::ir::{Arithmetic, Command, FunctionCall, MemoryAccess};
+use crate::ir::{Arithmetic, Command, FunctionCall, MemoryAccess, ProgramFlow};
 use anyhow::{anyhow, ensure, Context, Result};
 use std::collections::VecDeque;
 use std::io::BufRead;
@@ -8,7 +8,7 @@ pub struct Parser();
 impl Parser {
     fn parse_line(original_line: String) -> Result<Vec<Command>> {
         let line = trim_line_comment(original_line);
-        let mut tokens: VecDeque<_> = line.split(' ').filter(|x| !x.is_empty()).collect();
+        let mut tokens: VecDeque<_> = line.split_whitespace().filter(|x| !x.is_empty()).collect();
         let commands = if let Some(command) = tokens.pop_front() {
             match command {
                 "add" => {
@@ -61,23 +61,34 @@ impl Parser {
                 }
                 "label" => {
                     ensure!(tokens.len() == 1);
-                    todo!()
+                    let label = tokens[0].parse()?;
+                    vec![ProgramFlow::Label { label }.into()]
                 }
                 "goto" => {
                     ensure!(tokens.len() == 1);
-                    todo!()
+                    let label = tokens[0].parse()?;
+                    vec![ProgramFlow::Goto { label }.into()]
                 }
                 "if-goto" => {
                     ensure!(tokens.len() == 1);
-                    todo!()
+                    let label = tokens[0].parse()?;
+                    vec![ProgramFlow::IfGoto { label }.into()]
                 }
                 "function" => {
                     ensure!(tokens.len() == 2);
-                    todo!()
+                    let name = tokens[0].parse()?;
+                    let n_locals = tokens[1]
+                        .parse()
+                        .with_context(|| format!("Invalid num locals {}", tokens[1]))?;
+                    vec![FunctionCall::Declare { name, n_locals }.into()]
                 }
                 "call" => {
                     ensure!(tokens.len() == 2);
-                    todo!()
+                    let name = tokens[0].parse()?;
+                    let n_args = tokens[1]
+                        .parse()
+                        .with_context(|| format!("Invalid num args {}", tokens[1]))?;
+                    vec![FunctionCall::Invoke { name, n_args }.into()]
                 }
                 "return" => {
                     ensure!(tokens.is_empty());

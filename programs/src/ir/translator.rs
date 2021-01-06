@@ -1,14 +1,21 @@
-use crate::ir::{Arithmetic, Command, MemoryAccess, Segment};
-use anyhow::{anyhow, ensure, Result};
+use crate::ir::{Arithmetic, Command, MemoryAccess, ProgramFlow, Segment, Symbol};
+use anyhow::{anyhow, ensure, Context, Result};
+
+struct TranslationContext {
+    class: Symbol,
+    function: Option<Symbol>,
+}
 
 pub struct Translator {
     translated_code: Vec<String>,
     next_label_id: usize,
 }
+
 impl Translator {
     fn prelude() -> Vec<&'static str> {
-        vec!["@256", "D=A", "@SP", "M=D"]
+        vec!["@256", "D=A", "@SP", "M=D" /*, "@Sys.init", "0;JMP" */]
     }
+
     pub fn new() -> Self {
         let mut ret = Translator {
             translated_code: Vec::new(),
@@ -19,7 +26,7 @@ impl Translator {
     }
 
     fn generate_label(&mut self) -> String {
-        let label = format!("L{}", self.next_label_id);
+        let label = format!("$L{}", self.next_label_id);
         self.next_label_id += 1;
         label
     }
@@ -92,12 +99,16 @@ impl Translator {
         self.add_assembly(&["M=M-D"]);
     }
 
-    fn add_memory_access(&mut self, class: &str, memory_access: &MemoryAccess) -> Result<()> {
+    fn add_memory_access(
+        &mut self,
+        context: &TranslationContext,
+        memory_access: &MemoryAccess,
+    ) -> Result<()> {
         match memory_access {
             MemoryAccess::Push { segment, index } => match segment {
                 Segment::Argument => self.add_push("ARG", *index),
                 Segment::Local => self.add_push("LCL", *index),
-                Segment::Static => self.add_push_const(format!("{}.{}", class, index)),
+                Segment::Static => self.add_push_const(format!("{}.{}", context.class.0, index)),
                 Segment::Constant => {
                     self.add_assembly(&[format!("@{}", index)]);
                     self.add_assembly(&["D=A", "@SP", "A=M", "M=D", "@SP", "M=M+1"]);
@@ -116,7 +127,7 @@ impl Translator {
             MemoryAccess::Pop { segment, index } => match segment {
                 Segment::Argument => self.add_pop("ARG", *index),
                 Segment::Local => self.add_pop("LCL", *index),
-                Segment::Static => self.add_pop_const(format!("{}.{}", class, index)),
+                Segment::Static => self.add_pop_const(format!("{}.{}", context.class.0, index)),
                 Segment::Constant => return Err(anyhow!("Unable to pop to {:?}", memory_access)),
                 Segment::This => self.add_pop("THIS", *index),
                 Segment::That => self.add_pop("THAT", *index),
@@ -133,21 +144,47 @@ impl Translator {
         Ok(())
     }
 
-    fn add_command(&mut self, class: &str, command: &Command) -> Result<()> {
+    fn add_program_flow(&mut self, program_flow: &ProgramFlow) {
+        match program_flow {
+            ProgramFlow::Label { label } => {
+                self.add_assembly(&[format!("({})", label.0)]);
+            }
+            ProgramFlow::Goto { label } => {
+                self.add_assembly(&[format!("@{}", label.0)]);
+                self.add_assembly(&["0;JMP"]);
+            }
+            ProgramFlow::IfGoto { label } => {
+                self.add_assembly(&["@SP", "AM=M-1", "D=M"]);
+                self.add_assembly(&[format!("@{}", label.0)]);
+                self.add_assembly(&["D;JNE"]);
+            }
+        }
+    }
+
+    fn add_command(&mut self, context: &mut TranslationContext, command: &Command) -> Result<()> {
         match command {
             Command::Arithmetic(arithmetic) => self.add_arithmetic(arithmetic),
-            Command::MemoryAccess(memory_access) => self.add_memory_access(class, memory_access)?,
-            Command::ProgramFlow(_program_flow) => todo!(),
+            Command::MemoryAccess(memory_access) => {
+                self.add_memory_access(context, memory_access)?
+            }
+            Command::ProgramFlow(program_flow) => self.add_program_flow(program_flow),
             Command::FunctionCall(_function_call) => todo!(),
         }
         Ok(())
     }
 
     pub fn add_commands(&mut self, class: &str, commands: &Vec<Command>) -> Result<()> {
-        self.add_assembly(&[format!("// -- Class: {} --", class)]);
+        let class = class
+            .parse()
+            .with_context(|| format!("Class name `{}` is invalid", class))?;
+        let mut context = TranslationContext {
+            class,
+            function: None,
+        };
+        self.add_assembly(&[format!("// -- Class: {} --", context.class.0)]);
         for command in commands {
             self.add_assembly(&[format!("// {:?}", command)]);
-            self.add_command(class, command)?;
+            self.add_command(&mut context, command)?;
         }
         Ok(())
     }
