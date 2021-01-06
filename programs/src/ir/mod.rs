@@ -41,7 +41,7 @@ pub enum MemoryAccess {
     Pop { segment: Segment, index: Word },
 }
 
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone)]
 pub struct Symbol(String);
 
 #[derive(Debug, Eq, PartialEq)]
