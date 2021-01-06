@@ -1,6 +1,7 @@
 pub mod assembly;
 pub mod common;
 pub mod ir;
+pub mod jack;
 
 #[macro_use]
 extern crate enumset;
