@@ -2,7 +2,7 @@ use crate::regex;
 use anyhow::{anyhow, ensure, Error, Result};
 use std::str::FromStr;
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Keyword {
     Class,
     Constructor,
@@ -26,7 +26,7 @@ pub enum Keyword {
     While,
     Return,
 }
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Symbol {
     OpenBrace,
     CloseBrace,
@@ -48,10 +48,10 @@ pub enum Symbol {
     Equal,
     Tilde,
 }
-#[derive(Debug)]
-pub struct Identifier(String);
+#[derive(Debug, Eq, PartialEq)]
+pub struct Identifier(pub String);
 
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum Token {
     Keyword(Keyword),
     Symbol(Symbol),

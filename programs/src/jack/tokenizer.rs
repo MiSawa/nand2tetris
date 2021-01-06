@@ -1,55 +1,105 @@
+use std::collections::VecDeque;
+use std::io::BufRead;
+
+use anyhow::{bail, ensure, Context, Result};
+
 use crate::jack::token::Token::{self, IntegerConstant, StringConstant};
 use crate::jack::token::{Identifier, Keyword, Symbol};
-use anyhow::{anyhow, ensure, Context, Result};
-use std::cell::Cell;
-use std::io::BufRead;
-use std::iter::Peekable;
 
-pub struct Tokenizer {}
+pub struct TokenIterator<R: BufRead> {
+    reader: R,
+    current_line: VecDeque<char>,
+    buffer: String,
+    line_no: usize,
+    finished: bool,
+}
 
-impl Tokenizer {
-    pub fn new() -> Self {
-        Tokenizer {}
+impl<R: BufRead> TokenIterator<R> {
+    pub fn from(reader: R) -> Self {
+        Self {
+            reader,
+            current_line: VecDeque::new(),
+            buffer: String::new(),
+            line_no: 0,
+            finished: false,
+        }
     }
 
-    fn take_token<I, F>(it: &mut Peekable<I>, f: F) -> String
+    fn fill_if_needed(&mut self) -> Result<()> {
+        if self.current_line.is_empty() {
+            self.reader
+                .read_line(&mut self.buffer)
+                .with_context(|| format!("Unable to read line {}", self.line_no))?;
+            self.current_line.extend(self.buffer.chars());
+            self.buffer.clear();
+            self.line_no += 1;
+        }
+        Ok(())
+    }
+
+    fn peek_char(&mut self) -> Result<Option<&char>> {
+        self.fill_if_needed()?;
+        Ok(self.current_line.front())
+    }
+
+    fn next_char(&mut self) -> Result<Option<char>> {
+        self.fill_if_needed()?;
+        Ok(self.current_line.pop_front())
+    }
+
+    fn read_while<F>(&mut self, f: F) -> Result<String>
     where
-        I: Iterator<Item = char>,
         F: Fn(&char) -> bool,
     {
-        let mut token = String::new();
-        while let Some(c) = it.peek() {
+        let mut res = String::new();
+        while let Some(c) = self.peek_char()? {
             if f(c) {
-                token.push(it.next().unwrap());
+                res.push(self.next_char()?.unwrap());
             } else {
                 break;
             }
         }
-        return token;
+        return Ok(res);
     }
 
-    fn read_token<I: Iterator<Item = char>>(
-        &mut self,
-        it: &mut Peekable<I>,
-    ) -> Result<Option<Token>> {
-        if let Some(&c) = it.peek() {
+    fn discard_while<F>(&mut self, f: F) -> Result<()>
+    where
+        F: Fn(&char) -> bool,
+    {
+        while let Some(c) = self.peek_char()? {
+            if f(c) {
+                self.next_char()?;
+            } else {
+                break;
+            }
+        }
+        Ok(())
+    }
+
+    fn try_read_token(&mut self) -> Result<Option<Token>> {
+        if let Some(&c) = self.peek_char()? {
             if c == '/' {
-                ensure!(Some('/') == it.next());
-                let is_comment = it.peek().map_or(false, |&next| next == '/' || next == '*');
+                ensure!(Some('/') == self.next_char()?);
+                let is_comment = self
+                    .peek_char()?
+                    .map_or(false, |&next| next == '/' || next == '*');
                 if is_comment {
-                    if let Some('/') = it.peek() {
-                        it.find(|&c| c == '\n');
+                    if let Some('/') = self.peek_char()? {
+                        self.read_while(|&c| c != '\n')?;
+                        self.next_char()?;
                         return Ok(None);
                     } else {
-                        ensure!(Some('*') == it.next());
+                        ensure!(Some('*') == self.next_char()?);
                         loop {
-                            if let Some(_) = it.find(|&c| c == '*') {
-                                if it.peek().map_or(false, |&c| c == '/') {
-                                    ensure!(Some('/') == it.next());
+                            self.discard_while(|&c| c != '*')?;
+                            if Some(&'*') == self.peek_char()? {
+                                ensure!(Some('*') == self.next_char()?);
+                                if self.peek_char()?.map_or(false, |&c| c == '/') {
+                                    ensure!(Some('/') == self.next_char()?);
                                     return Ok(None);
                                 }
                             } else {
-                                return Err(anyhow!("Comment must be closed"));
+                                bail!("Comment must be closed");
                             }
                         }
                     }
@@ -57,27 +107,28 @@ impl Tokenizer {
                     return Ok(Some(Symbol::Slash.into()));
                 }
             } else if c.is_whitespace() {
-                it.next();
+                ensure!(self.next_char()?.unwrap().is_whitespace());
                 return Ok(None);
             } else if c == '"' {
                 // should be stringConstant
-                ensure!(Some('"') == it.next());
-                let str = it.take_while(|&c| c != '"').collect();
+                ensure!(Some('"') == self.next_char()?);
+                let str = self.read_while(|&c| c != '"')?;
+                ensure!(Some('"') == self.next_char()?);
                 return Ok(Some(StringConstant(str).into()));
             } else if c.is_ascii_digit() {
                 // should be integerConstant
-                let n_str = Self::take_token(it, |c| c.is_ascii_digit());
+                let n_str = self.read_while(|c| c.is_ascii_digit())?;
                 let n = n_str
                     .parse()
                     .with_context(|| format!("Failed to parse integer constant `{}`", n_str))?;
                 return Ok(IntegerConstant(n).into());
             } else if !c.is_alphabetic() && c != '_' {
                 // should be symbol
-                let symbol: Symbol = it.take(1).collect::<String>().parse()?;
+                let symbol: Symbol = self.next_char()?.unwrap().to_string().parse()?;
                 return Ok(Some(symbol.into()));
             } else {
                 // identifier or keyword
-                let word = Self::take_token(it, |&c| c.is_alphanumeric() || c == '_');
+                let word = self.read_while(|&c| c.is_alphanumeric() || c == '_')?;
                 if let Ok(keyword) = word.parse::<Keyword>() {
                     return Ok(Some(keyword.into()));
                 }
@@ -95,52 +146,44 @@ impl Tokenizer {
         Ok(None)
     }
 
-    pub fn tokenize<R: BufRead>(&mut self, input: R) -> Result<Vec<Token>> {
-        let mut ret = Vec::new();
-        let lines = input
-            .lines()
-            .collect::<std::io::Result<Vec<_>>>()
-            .with_context(|| format!("Failed to read input"))?;
-        let chars = lines
-            .into_iter()
-            .flat_map(|line| {
-                line.chars()
-                    .collect::<Vec<_>>()
-                    .into_iter()
-                    .chain(std::iter::once('\n'))
-            })
-            .collect::<Vec<_>>();
-        let eol_count = Cell::new(0usize);
-        let mut it = chars
-            .into_iter()
-            .inspect(|&c| {
-                if c == '\n' {
-                    eol_count.replace(eol_count.get() + 1);
-                }
-            })
-            .peekable();
-        while it.peek().is_some() {
-            let line = eol_count.get() + 1;
-            dbg!(it.peek().unwrap());
-            let option_token = self
-                .read_token(&mut it)
-                .with_context(|| format!("Unable to tokenize line {}", line))?;
-            if let Some(token) = option_token {
-                ret.push(token);
+    fn next_token(&mut self) -> Result<Option<Token>> {
+        if self.finished {
+            return Ok(None);
+        }
+        self.finished = true;
+        while self.peek_char()?.is_some() {
+            let token = self
+                .try_read_token()
+                .with_context(|| format!("Failed to tokenize at line {}", self.line_no));
+            if let ret @ Ok(Some(_)) = token {
+                self.finished = false;
+                return ret;
             }
         }
-        Ok(ret)
+        Ok(None)
     }
 }
+
+impl<R: BufRead> Iterator for TokenIterator<R> {
+    type Item = Result<Token>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self.next_token() {
+            Ok(option_token) => option_token.map(Result::Ok),
+            Err(e) => Option::Some(Err(e)),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use super::*;
     use anyhow::Result;
+
+    use super::*;
+
     #[test]
     fn test() -> Result<()> {
-        let mut tokenizer = Tokenizer::new();
-        let tokens = tokenizer.tokenize(
-            r#"
+        let input = r#"
             class Main {
               // foo
               function main() {
@@ -152,8 +195,9 @@ mod test {
               }
             }
             "#
-            .as_bytes(),
-        )?;
+        .as_bytes();
+        let token_iterator = TokenIterator::from(input);
+        let _tokens: Vec<_> = token_iterator.collect();
         Ok(())
     }
 }

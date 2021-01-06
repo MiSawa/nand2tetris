@@ -1,2 +1,3 @@
+pub mod analyzer;
 mod token;
-mod tokenizer;
+pub mod tokenizer;
