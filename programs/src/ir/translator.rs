@@ -32,7 +32,8 @@ impl Translator {
                 name: Symbol("Sys.init".to_owned()),
                 n_args: 0,
             },
-        ).unwrap();
+        )
+        .unwrap();
         ret
     }
 
