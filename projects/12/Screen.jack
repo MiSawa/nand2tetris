@@ -1,0 +1,203 @@
+// This file is part of www.nand2tetris.org
+// and the book "The Elements of Computing Systems"
+// by Nisan and Schocken, MIT Press.
+// File name: projects/12/Screen.jack
+
+/**
+ * A library of functions for displaying graphics on the screen.
+ * The Hack physical screen consists of 512 rows (indexed 0..511, top to bottom)
+ * of 256 pixels each (indexed 0..255, left to right). The top left pixel on 
+ * the screen is indexed (0,0).
+ */
+class Screen {
+    static boolean color;
+    static Array bit;
+
+    /** Initializes the Screen. */
+    function void init() {
+        var int i, p2;
+        let color = true;
+        let bit = Array.new(16);
+        let i = 0;
+        let p2 = 1;
+        while (i < 16) {
+            let bit[i] = p2;
+            let i = i + 1;
+            let p2 = p2 + p2;
+        }
+        return;
+    }
+
+    /** Erases the entire screen. */
+    function void clearScreen() {
+        var int i, max;
+        let i = 16384;
+        while (i < 24576) {
+            do Memory.poke(i, 0);
+            let i = i + 1;
+        }
+        return;
+    }
+
+    /** Sets the current color, to be used for all subsequent drawXXX commands.
+     *  Black is represented by true, white by false. */
+    function void setColor(boolean b) {
+        let color = b;
+        return;
+    }
+
+    /** Draws the (x,y) pixel, using the current color. */
+    function void drawPixel(int x, int y) {
+        var int i;
+        if ((x < 0) | (x > 511) | (y < 0) | (y > 255)) {
+            do Sys.error(7);
+        }
+        let i = 16384 + (y * 32) + (x / 16);
+        let y = Memory.peek(i);
+        if (color) {
+            let y = y | bit[x&15];
+        } else {
+            let y = y & ~bit[x&15];
+        }
+        do Memory.poke(i, y);
+        return;
+    }
+
+    function void __drawRULine(int x, int y, int dx, int dy) {
+        var int a, b, adxMinusBdy;
+        let a = 0;
+        let b = 0;
+        let adxMinusBdy = 0;
+        while (~((a > dx) | (b > dy))) {
+            do Screen.drawPixel(x + a, y + b);
+            if (adxMinusBdy < 0) {
+                let a = a + 1;
+                let adxMinusBdy = adxMinusBdy + dy;
+            } else {
+                let b = b + 1;
+                let adxMinusBdy = adxMinusBdy - dx;
+            }
+        }
+        return;
+    }
+    function void __drawRDLine(int x, int y, int dx, int dy) {
+        var int a, b, adxMinusBdy;
+        let a = 0;
+        let b = 0;
+        let adxMinusBdy = 0;
+        while (~((a > dx) | (b > dy))) {
+            do Screen.drawPixel(x + a, y - b);
+            if (adxMinusBdy < 0) {
+                let a = a + 1;
+                let adxMinusBdy = adxMinusBdy + dy;
+            } else {
+                let b = b + 1;
+                let adxMinusBdy = adxMinusBdy - dx;
+            }
+        }
+        return;
+    }
+
+    /** Draws a line from pixel (x1,y1) to pixel (x2,y2), using the current color. */
+    function void drawLine(int x1, int y1, int x2, int y2) {
+        var int i;
+        if ((x1 < 0) | (x1 > 511) | (y1 < 0) | (y1 > 255) | (x2 < 0) | (x2 > 511) | (y2 < 0) | (y2 > 255)) {
+            do Sys.error(8);
+        }
+        if (x1 = x2) {
+            let i = Math.min(y1, y2);
+            let y2 = Math.max(y1, y2) + 1;
+            while (i < y2) {
+                do Screen.drawPixel(x1, i);
+                let i = i + 1;
+            }
+            return;
+        }
+        if (y1 = y2) {
+            let i = Math.min(x1, x2);
+            let x2 = Math.max(x1, x2) + 1;
+            while (i < x2) {
+                do Screen.drawPixel(i, y1);
+                let i = i + 1;
+            }
+            return;
+        }
+        if (x1 < x2) {
+            if (y1 < y2) {
+                do Screen.__drawRULine(x1, y1, x2 - x1, y2 - y1);
+            } else {
+                do Screen.__drawRDLine(x1, y1, x2 - x1, y1 - y2);
+            }
+        } else {
+            if (y1 < y2) {
+                do Screen.__drawRDLine(x2, y2, x1 - x2, y2 - y1);
+            } else {
+                do Screen.__drawRULine(x2, y2, x1 - x2, y1 - y2);
+            }
+        }
+        return;
+    }
+
+    /** Draws a filled rectangle whose top left corner is (x1, y1)
+     * and bottom right corner is (x2,y2), using the current color. */
+    function void drawRectangle(int x1, int y1, int x2, int y2) {
+        var int i, j;
+        if ((x1 < 0) | (x1 > 511) | (y1 < 0) | (y1 > 255) | (x2 < 0) | (x2 > 511) | (y2 < 0) | (y2 > 255)) {
+            do Sys.error(9);
+        }
+        let i = Math.min(x1, x2);
+        let x2 = Math.max(x1, x2) + 1;
+        let j = Math.min(y1, y2);
+        let y2 = Math.max(y1, y2) + 1;
+        let y1 = j;
+        while (i < x2) {
+            let j = y1;
+            while (j < y2) {
+                do Screen.drawPixel(i, j);
+                let j = j + 1;
+            }
+            let i = i + 1;
+        }
+        return;
+    }
+
+    function void __tryDrawPixel(int x, int y) {
+        if ((x < 0) | (x > 511) | (y < 0) | (y > 255)) {
+            return;
+        }
+        do Screen.drawPixel(x, y);
+        return;
+    }
+
+    /** Draws a filled circle of radius r<=181 around (x,y), using the current color. */
+    function void drawCircle(int x, int y, int r) {
+        var int rr, dx, dy, sxy, i;
+        if ((x < 0) | (x > 511) | (y < 0) | (y > 255)) {
+            do Sys.error(12);
+        }
+        if ((r < 0) | (r > 181)) {
+            do Sys.error(13);
+        }
+        let rr = r * r;
+        let dx = 0;
+        let dy = r;
+        let sxy = rr;
+        while ((dy > -1) & (dx < r)) {
+            let i = dx;
+            while (i > -1) {
+                do Screen.__tryDrawPixel(x+i, y+dy);
+                do Screen.__tryDrawPixel(x+i, y-dy);
+                do Screen.__tryDrawPixel(x-i, y+dy);
+                do Screen.__tryDrawPixel(x-i, y-dy);
+                let i = i - 1;
+            }
+            let dy = dy - 1;
+            let sxy = sxy - (dy + dy + 1);
+            while ((sxy + dx + dx + 1) < rr) {
+                let sxy = sxy + dx + dx + 1;
+                let dx = dx + 1;
+            }
+        }
+        return;
+    }
+}
