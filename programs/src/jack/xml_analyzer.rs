@@ -4,13 +4,13 @@ use std::collections::VecDeque;
 use std::fmt::Display;
 use std::iter::Fuse;
 
-pub struct Analyzer<I: Iterator<Item = Result<Token>>> {
+pub struct XMLAnalyzer<I: Iterator<Item = Result<Token>>> {
     token_stream: Fuse<I>,
     peeked: VecDeque<Result<Token>>,
     result_xml: String,
 }
 
-impl<I: Iterator<Item = Result<Token>>> Analyzer<I> {
+impl<I: Iterator<Item = Result<Token>>> XMLAnalyzer<I> {
     pub fn from(token_stream: I) -> Self {
         return Self {
             token_stream: token_stream.fuse(),
@@ -444,42 +444,8 @@ mod test {
             }
             "#
         .as_bytes();
-        let input = r#"
-class Main {
-    function void main() {
-        var Array a;
-        var int length;
-        var int i, sum;
-
-	let length = Keyboard.readInt("HOW MANY NUMBERS? ");
-	let a = Array.new(length);
-	let i = 0;
-
-	while (i < length) {
-	    let a[i] = Keyboard.readInt("ENTER THE NEXT NUMBER: ");
-	    let i = i + 1;
-	}
-
-	let i = 0;
-	let sum = 0;
-
-	while (i < length) {
-	    let sum = sum + a[i];
-	    let i = i + 1;
-	}
-
-	do Output.printString("THE AVERAGE IS: ");
-	do Output.printInt(sum / length);
-	do Output.println();
-
-	return;
-    }
-}
-
-        "#
-        .as_bytes();
         let token_iterator = TokenIterator::from(input);
-        let mut analyzer = Analyzer::from(token_iterator);
+        let mut analyzer = XMLAnalyzer::from(token_iterator);
         let ret = analyzer.compile()?;
         println!("{}", ret);
         Ok(())

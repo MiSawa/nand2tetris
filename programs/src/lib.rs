@@ -5,6 +5,8 @@ pub mod jack;
 
 #[macro_use]
 extern crate enumset;
+#[macro_use]
+extern crate enum_map;
 extern crate once_cell;
 
 #[macro_export]

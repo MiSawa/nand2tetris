@@ -1,13 +1,14 @@
 use anyhow::{anyhow, Context, Result};
 
+use nand2tetris::ir::writer::IRWriter;
+use nand2tetris::jack::ir_analyzer::IRAnalyzer;
 use nand2tetris::jack::tokenizer::TokenIterator;
-use nand2tetris::jack::xml_analyzer::XMLAnalyzer;
 use std::fs::{self, File};
-use std::io::{BufReader, BufWriter, Write};
+use std::io::{BufReader, BufWriter};
 use std::path::{Path, PathBuf};
 
 const JACK_EXT: &str = ".jack";
-const XML_EXT: &str = ".xml";
+const VM_EXT: &str = ".vm";
 
 fn main() -> Result<()> {
     let mut args = std::env::args();
@@ -58,17 +59,16 @@ fn main() -> Result<()> {
             .map(BufReader::new)
             .with_context(|| format!("Unable to open file {}", jack_file.to_string_lossy()))?;
         let token_iterator = TokenIterator::from(jack);
-        let mut analyzer = XMLAnalyzer::from(token_iterator);
-        let result = analyzer
-            .compile()
-            .with_context(|| format!("Unable to analyze {}", jack_file.to_string_lossy()))?;
-        let output_file = jack_file.with_extension(&XML_EXT[1..]);
-        let mut xml = File::create(&output_file)
+
+        let output_file = jack_file.with_extension(&VM_EXT[1..]);
+        let vm = File::create(&output_file)
             .map(BufWriter::new)
             .with_context(|| format!("Unable to open file {}", output_file.to_string_lossy()))?;
-        xml.write(result.as_bytes()).with_context(|| {
-            format!("Failed to write to file {}", output_file.to_string_lossy())
-        })?;
+        let ir_writer = IRWriter::new(vm);
+        let mut analyzer = IRAnalyzer::from(token_iterator, ir_writer);
+        analyzer
+            .compile()
+            .with_context(|| format!("Unable to analyze {}", jack_file.to_string_lossy()))?;
     }
     Result::Ok(())
 }

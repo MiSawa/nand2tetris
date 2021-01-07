@@ -48,7 +48,7 @@ pub enum Symbol {
     Equal,
     Tilde,
 }
-#[derive(Debug, Eq, PartialEq)]
+#[derive(Debug, Eq, PartialEq, Clone, Hash)]
 pub struct Identifier(pub String);
 
 #[derive(Debug, Eq, PartialEq)]
@@ -73,6 +73,11 @@ impl From<Symbol> for Token {
 impl From<Identifier> for Token {
     fn from(identifier: Identifier) -> Self {
         Token::Identifier(identifier)
+    }
+}
+impl Into<crate::ir::Symbol> for Identifier {
+    fn into(self) -> crate::ir::Symbol {
+        self.0.parse().unwrap()
     }
 }
 

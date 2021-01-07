@@ -4,6 +4,7 @@ use std::str::FromStr;
 
 pub mod parser;
 pub mod translator;
+pub mod writer;
 
 type Word = u16;
 
@@ -121,6 +122,23 @@ impl FromStr for Segment {
     }
 }
 
+impl ToString for Arithmetic {
+    fn to_string(&self) -> String {
+        match self {
+            Arithmetic::Add => "add",
+            Arithmetic::Sub => "sub",
+            Arithmetic::Neg => "neg",
+            Arithmetic::Eq => "eq",
+            Arithmetic::Gt => "gt",
+            Arithmetic::Lt => "lt",
+            Arithmetic::And => "and",
+            Arithmetic::Or => "or",
+            Arithmetic::Not => "not",
+        }
+        .to_owned()
+    }
+}
+
 impl ToString for Segment {
     fn to_string(&self) -> String {
         match self {
@@ -146,6 +164,25 @@ impl ToString for MemoryAccess {
             MemoryAccess::Pop { segment, index } => {
                 format!("pop {} {}", segment.to_string(), index)
             }
+        }
+    }
+}
+
+impl ToString for ProgramFlow {
+    fn to_string(&self) -> String {
+        match self {
+            ProgramFlow::Label { label } => format!("label {}", label.0),
+            ProgramFlow::Goto { label } => format!("goto {}", label.0),
+            ProgramFlow::IfGoto { label } => format!("if-goto {}", label.0),
+        }
+    }
+}
+impl ToString for FunctionCall {
+    fn to_string(&self) -> String {
+        match self {
+            FunctionCall::Declare { name, n_locals } => format!("function {} {}", name.0, n_locals),
+            FunctionCall::Invoke { name, n_args } => format!("call {} {}", name.0, n_args),
+            FunctionCall::Return => "return".to_owned(),
         }
     }
 }
