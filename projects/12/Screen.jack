@@ -11,11 +11,11 @@
  */
 class Screen {
     static boolean color;
-    static Array bit;
+    static Array bit, div16, mul32;
 
     /** Initializes the Screen. */
     function void init() {
-        var int i, p2;
+        var int i, j, k, p2;
         let color = true;
         let bit = Array.new(16);
         let i = 0;
@@ -24,6 +24,26 @@ class Screen {
             let bit[i] = p2;
             let i = i + 1;
             let p2 = p2 + p2;
+        }
+        let div16 = Array.new(512);
+        let i = 512;
+        let k = 32;
+        while (i > 0) {
+            let j = 16;
+            let k = k - 1;
+            while (j > 0) {
+                let i = i - 1;
+                let j = j - 1;
+                let div16[i] = k;
+            }
+        }
+        let mul32 = Array.new(256);
+        let i = 256;
+        let k = 8192;
+        while (i > 0) {
+            let i = i - 1;
+            let k = k - 32;
+            let mul32[i] = k;
         }
         return;
     }
@@ -52,7 +72,7 @@ class Screen {
         if ((x < 0) | (x > 511) | (y < 0) | (y > 255)) {
             do Sys.error(7);
         }
-        let i = 16384 + (y * 32) + (x / 16);
+        let i = 16384 + mul32[y] + div16[x];
         let y = Memory.peek(i);
         if (color) {
             let y = y | bit[x&15];
@@ -63,13 +83,36 @@ class Screen {
         return;
     }
 
+    function void __drawPixelUnchecked(int x, int y) {
+        var int i;
+        let i = 16384 + mul32[y] + div16[x];
+        let y = Memory.peek(i);
+        if (color) {
+            let y = y | bit[x&15];
+        } else {
+            let y = y & ~bit[x&15];
+        }
+        do Memory.poke(i, y);
+        return;
+    }
+
+    function void __fillPixel16(int x, int y) {
+        let x = 16384 + mul32[y] + div16[x];
+        if (color) {
+            do Memory.poke(x, -1);
+        } else {
+            do Memory.poke(x, 0);
+        }
+        return;
+    }
+
     function void __drawRULine(int x, int y, int dx, int dy) {
         var int a, b, adxMinusBdy;
         let a = 0;
         let b = 0;
         let adxMinusBdy = 0;
         while (~((a > dx) | (b > dy))) {
-            do Screen.drawPixel(x + a, y + b);
+            do Screen.__drawPixelUnchecked(x + a, y + b);
             if (adxMinusBdy < 0) {
                 let a = a + 1;
                 let adxMinusBdy = adxMinusBdy + dy;
@@ -86,13 +129,37 @@ class Screen {
         let b = 0;
         let adxMinusBdy = 0;
         while (~((a > dx) | (b > dy))) {
-            do Screen.drawPixel(x + a, y - b);
+            do Screen.__drawPixelUnchecked(x + a, y - b);
             if (adxMinusBdy < 0) {
                 let a = a + 1;
                 let adxMinusBdy = adxMinusBdy + dy;
             } else {
                 let b = b + 1;
                 let adxMinusBdy = adxMinusBdy - dx;
+            }
+        }
+        return;
+    }
+
+    function void __drawHorisontalLine(int y, int x1, int x2) {
+        var int i, j;
+        let i = 16384 + mul32[y] + div16[x1];
+        let j = 16384 + mul32[y] + div16[x2];
+        if (color) {
+            do Memory.poke(i, Memory.peek(i) | ~(bit[(x1 & 15) + 1] - 1));
+            do Memory.poke(j, Memory.peek(j) | (bit[(x2 & 15) + 1] - 1));
+            let i = i + 1;
+            while (i < j) {
+                do Memory.poke(i, -1);
+                let i = i + 1;
+            }
+        } else {
+            do Memory.poke(i, Memory.peek(i) & (bit[(x1 & 15) + 1] - 1));
+            do Memory.poke(j, Memory.peek(j) & ~(bit[(x2 & 15) + 1] - 1));
+            let i = i + 1;
+            while (i < j) {
+                do Memory.poke(i, 0);
+                let i = i + 1;
             }
         }
         return;
@@ -108,7 +175,7 @@ class Screen {
             let i = Math.min(y1, y2);
             let y2 = Math.max(y1, y2) + 1;
             while (i < y2) {
-                do Screen.drawPixel(x1, i);
+                do Screen.__drawPixelUnchecked(x1, i);
                 let i = i + 1;
             }
             return;
@@ -117,7 +184,7 @@ class Screen {
             let i = Math.min(x1, x2);
             let x2 = Math.max(x1, x2) + 1;
             while (i < x2) {
-                do Screen.drawPixel(i, y1);
+                do Screen.__drawPixelUnchecked(i, y1);
                 let i = i + 1;
             }
             return;
@@ -141,22 +208,18 @@ class Screen {
     /** Draws a filled rectangle whose top left corner is (x1, y1)
      * and bottom right corner is (x2,y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
-        var int i, j;
+        var int j;
         if ((x1 < 0) | (x1 > 511) | (y1 < 0) | (y1 > 255) | (x2 < 0) | (x2 > 511) | (y2 < 0) | (y2 > 255)) {
             do Sys.error(9);
         }
-        let i = Math.min(x1, x2);
+        let j = Math.min(x1, x2);
         let x2 = Math.max(x1, x2) + 1;
+        let x1 = j;
         let j = Math.min(y1, y2);
         let y2 = Math.max(y1, y2) + 1;
-        let y1 = j;
-        while (i < x2) {
-            let j = y1;
-            while (j < y2) {
-                do Screen.drawPixel(i, j);
-                let j = j + 1;
-            }
-            let i = i + 1;
+        while (j < y2) {
+            do Screen.__drawHorisontalLine(j, x1, x2);
+            let j = j + 1;
         }
         return;
     }
@@ -165,7 +228,7 @@ class Screen {
         if ((x < 0) | (x > 511) | (y < 0) | (y > 255)) {
             return;
         }
-        do Screen.drawPixel(x, y);
+        do Screen.__drawPixelUnchecked(x, y);
         return;
     }
 
