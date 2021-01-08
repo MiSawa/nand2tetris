@@ -460,6 +460,7 @@ impl<I: Iterator<Item = Result<Token>>, W: Write> IRAnalyzer<I, W> {
     }
     fn compile_expression(&mut self) -> Result<()> {
         self.compile_term()?;
+        let mut delayed: Vec<(Arithmetic, usize)> = Vec::new();
         loop {
             if let Some(symbol) = self.peek_symbol()? {
                 match symbol {
@@ -471,18 +472,25 @@ impl<I: Iterator<Item = Result<Token>>, W: Write> IRAnalyzer<I, W> {
                     | Symbol::GreaterThan
                     | Symbol::Equal => {
                         let symbol = self.next_symbol()?;
-                        self.compile_term()?;
-                        let operator = match symbol {
-                            Symbol::Plus => Arithmetic::Add,
-                            Symbol::Dash => Arithmetic::Sub,
-                            Symbol::Ampersand => Arithmetic::And,
-                            Symbol::VerticalBar => Arithmetic::Or,
-                            Symbol::LessThan => Arithmetic::Lt,
-                            Symbol::GreaterThan => Arithmetic::Gt,
-                            Symbol::Equal => Arithmetic::Eq,
+                        let (op, precedence) = match symbol {
+                            Symbol::Plus => (Arithmetic::Add, 3),
+                            Symbol::Dash => (Arithmetic::Sub, 3),
+                            Symbol::Ampersand => (Arithmetic::And, 2),
+                            Symbol::VerticalBar => (Arithmetic::Or, 1),
+                            Symbol::LessThan => (Arithmetic::Lt, 0),
+                            Symbol::GreaterThan => (Arithmetic::Gt, 0),
+                            Symbol::Equal => (Arithmetic::Eq, 0),
                             _ => unreachable!(),
                         };
-                        self.ir_writer.write_arithmetic(&operator)?;
+                        while let Some((_, p)) = delayed.last() {
+                            if &precedence <= p {
+                                self.ir_writer.write_arithmetic(&delayed.pop().unwrap().0)?;
+                            } else {
+                                break;
+                            }
+                        }
+                        self.compile_term()?;
+                        delayed.push((op, precedence));
                     }
                     Symbol::Star => {
                         ensure!(Symbol::Star == self.next_symbol()?);
@@ -497,6 +505,9 @@ impl<I: Iterator<Item = Result<Token>>, W: Write> IRAnalyzer<I, W> {
                     _ => break,
                 }
             }
+        }
+        while let Some((op, _)) = delayed.pop() {
+            self.ir_writer.write_arithmetic(&op)?;
         }
         Ok(())
     }
