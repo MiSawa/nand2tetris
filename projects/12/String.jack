@@ -61,7 +61,7 @@ class String {
     /** Appends c to this string's end and returns this string. */
     method String appendChar(char c) {
         if (len = cap) {
-            do Sys.err(17);
+            do Sys.error(17);
         }
         let array[len] = c;
         let len = len + 1;
@@ -71,7 +71,7 @@ class String {
     /** Erases the last character from this string. */
     method void eraseLastChar() {
         if (len = 0) {
-            do Sys.err(18);
+            do Sys.error(18);
         }
         let len = len - 1;
         return;
@@ -116,7 +116,7 @@ class String {
             let val = val - (div * 10);
         }
         if (len = cap) {
-            do Sys.halt(19);
+            do Sys.error(19);
         }
         do appendChar(48 + val);
         return;
@@ -127,14 +127,14 @@ class String {
         let len = 0;
         if (val = 0) {
             if (0 = cap) {
-                do Sys.halt(19);
+                do Sys.error(19);
             }
             do appendChar(48);
             return;
         }
         if (val < 0) {
             if (0 = cap) {
-                do Sys.halt(19);
+                do Sys.error(19);
             }
             do appendChar(45);
             let val = -val;

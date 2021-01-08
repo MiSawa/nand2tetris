@@ -41,7 +41,7 @@ class Memory {
             do Sys.error(5);
         }
         let size = size + 1; // need header
-        let prev_next_segment_addr = first_segment;
+        let prev_next_segment_addr = 0;
         let segment = first_segment;
         while (~(segment = 0)) {
             let segment_size = segment[0];
@@ -55,7 +55,11 @@ class Memory {
                     return next_segment + 1;
                 }
                 let next_segment = segment[1];
-                let prev_next_segment_addr[0] = next_segment;
+                if (prev_next_segment_addr = 0) {
+                    let first_segment = next_segment;
+                } else {
+                    let prev_next_segment_addr[0] = next_segment;
+                }
                 return segment + 1;
             }
             let prev_next_segment_addr = segment + 1;

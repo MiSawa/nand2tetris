@@ -17,17 +17,17 @@ class Screen {
     function void init() {
         var int i, j, k, p2;
         let color = true;
-        let bit = Array.new(16);
+        let bit = Array.new(18);
         let i = 0;
         let p2 = 1;
-        while (i < 16) {
+        while (i < 18) {
             let bit[i] = p2;
             let i = i + 1;
             let p2 = p2 + p2;
         }
-        let div16 = Array.new(512);
-        let i = 512;
-        let k = 32;
+        let div16 = Array.new(528);
+        let i = 528;
+        let k = 33;
         while (i > 0) {
             let j = 16;
             let k = k - 1;
@@ -37,9 +37,9 @@ class Screen {
                 let div16[i] = k;
             }
         }
-        let mul32 = Array.new(256);
-        let i = 256;
-        let k = 8192;
+        let mul32 = Array.new(257);
+        let i = 257;
+        let k = 8224;
         while (i > 0) {
             let i = i - 1;
             let k = k - 32;
@@ -147,7 +147,7 @@ class Screen {
         let j = 16384 + mul32[y] + div16[x2];
         if (color) {
             do Memory.poke(i, Memory.peek(i) | ~(bit[(x1 & 15) + 1] - 1));
-            do Memory.poke(j, Memory.peek(j) | (bit[(x2 & 15) + 1] - 1));
+            do Memory.poke(j, Memory.peek(j) | (bit[(x2 & 15)] - 1));
             let i = i + 1;
             while (i < j) {
                 do Memory.poke(i, -1);
@@ -155,7 +155,7 @@ class Screen {
             }
         } else {
             do Memory.poke(i, Memory.peek(i) & (bit[(x1 & 15) + 1] - 1));
-            do Memory.poke(j, Memory.peek(j) & ~(bit[(x2 & 15) + 1] - 1));
+            do Memory.poke(j, Memory.peek(j) & ~(bit[(x2 & 15)] - 1));
             let i = i + 1;
             while (i < j) {
                 do Memory.poke(i, 0);
@@ -206,20 +206,76 @@ class Screen {
     }
 
     /** Draws a filled rectangle whose top left corner is (x1, y1)
-     * and bottom right corner is (x2,y2), using the current color. */
+     * and bottom right corner is (x2, y2), using the current color. */
     function void drawRectangle(int x1, int y1, int x2, int y2) {
-        var int j;
+        var int i, j, si, ti, mask1, mask2;
         if ((x1 < 0) | (x1 > 511) | (y1 < 0) | (y1 > 255) | (x2 < 0) | (x2 > 511) | (y2 < 0) | (y2 > 255)) {
             do Sys.error(9);
         }
-        let j = Math.min(x1, x2);
+        let i = Math.min(x1, x2);
         let x2 = Math.max(x1, x2) + 1;
-        let x1 = j;
+        let x1 = i;
         let j = Math.min(y1, y2);
         let y2 = Math.max(y1, y2) + 1;
-        while (j < y2) {
-            do Screen.__drawHorisontalLine(j, x1, x2);
-            let j = j + 1;
+
+        let si = 16384 + mul32[y1] + div16[x1];
+        let ti = 16384 + mul32[y1] + div16[x2];
+        if (si = ti) {
+            let mask1 = bit[x2 & 15] - bit[x1 & 15];
+            if (color) {
+                while (j < y2) {
+                    let si[0] = si[0] | mask1;
+                    let j = j + 1;
+                    let si = si + 32;
+                }
+            } else {
+                let mask1 = ~mask1;
+                while (j < y2) {
+                    let si[0] = si[0] & mask1;
+                    let j = j + 1;
+                    let si = si + 32;
+                }
+            }
+        } else {
+            let mask1 = ~(bit[x1&15] - 1);
+            let mask2 = bit[x2&15] - 1;
+            if (color) {
+                let i = 0;
+                while (j < y2) {
+                    let si[i] = si[i] | mask1;
+                    let ti[i] = ti[i] | mask2;
+                    let i = i + 32;
+                    let j = j + 1;
+                }
+            } else {
+                let i = 0;
+                let mask1 = ~mask1;
+                let mask2 = ~mask2;
+                while (j < y2) {
+                    let si[i] = si[i] & mask1;
+                    let ti[i] = ti[i] & mask2;
+                    let i = i + 32;
+                    let j = j + 1;
+                }
+            }
+            let j = y1;
+            while (j < y2) {
+                let i = si + 1;
+                if (color) {
+                    while (i < ti) {
+                        let i[0] = -1;
+                        let i = i + 1;
+                    }
+                } else {
+                    while (i < ti) {
+                        let i[0] = 0;
+                        let i = i + 1;
+                    }
+                }
+                let j = j + 1;
+                let si = si + 32;
+                let ti = ti + 32;
+            }
         }
         return;
     }
