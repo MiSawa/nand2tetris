@@ -22,8 +22,11 @@ class Main {
         // true (-1)
         let r[5] = ~(7 | 2 * 3 / 3 * 3 + 1 < 0);
         let r[6] = 7 | 2 * 3 / 3 * 3 + 1 > 0;
-        let r[7] = false & false | true;
-        let r[8] = true | false & false;
+        let r[7] = 0 & 0 | -1;
+        let r[8] = -1 | 0 & 0;
+
+        // 21
+        let r[9] = 1 - 2 / 3 + 4 * 5;
         return;
     }
 }
