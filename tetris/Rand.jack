@@ -1,0 +1,9 @@
+class Rand {
+    static int x;
+
+    function int next() {
+        let x = (x + 2) * 3;
+        let x = x - ((x / 1031) * 1031);
+        return x;
+    }
+}
