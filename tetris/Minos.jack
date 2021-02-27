@@ -1,0 +1,120 @@
+class Minos {
+    field Array rotatedMinos;
+
+    constructor Minos create(Array original) {
+        var int i;
+        let rotatedMinos = Array.new(4);
+        let rotatedMinos[0] = original;
+        let i = 0;
+        while (i < 3) {
+            let rotatedMinos[i+1] = Minos.rotated(rotatedMinos[i]);
+            let i = i + 1;
+        }
+        return this;
+    }
+
+    method void dispose() {
+        var int i, j;
+        var Point p;
+        var Array tmp;
+        let i = 0;
+        while (i < 4) {
+            let tmp = rotatedMinos[i];
+            let j = 0;
+            while (j < 4) {
+                let p = tmp[j];
+                do p.dispose();
+                let j = j + 1;
+            }
+            do tmp.dispose();
+            let i = i + 1;
+        }
+        do rotatedMinos.dispose();
+        do Memory.deAlloc(this);
+        return;
+    }
+
+    method Array getRotation(int i) {
+        return rotatedMinos[i & 3];
+    }
+
+    function Array rotated(Array original) {
+        var int i;
+        var Point p;
+        var Array ret;
+        let ret = Array.new(4);
+        while (i < 4) {
+            let p = original[i];
+            let ret[i] = Point.new(-p[1], p[0]);
+            let i = i + 1;
+        }
+        return ret;
+    }
+
+    function Minos getT() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, 0);
+        let minos[1] = Point.new(1, 0);
+        let minos[2] = Point.new(0, -1);
+        let minos[3] = Point.new(0,  1);
+        return Minos.create(minos);
+    }
+
+    function Minos getI() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, -2);
+        let minos[1] = Point.new(0, -1);
+        let minos[2] = Point.new(0,  0);
+        let minos[3] = Point.new(0,  1);
+        return Minos.create(minos);
+    }
+
+    function Minos getO() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, 0);
+        let minos[1] = Point.new(0, 1);
+        let minos[2] = Point.new(1, 0);
+        let minos[3] = Point.new(1, 1);
+        return Minos.create(minos);
+    }
+
+    function Minos getZ() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, 0);
+        let minos[1] = Point.new(1, 0);
+        let minos[2] = Point.new(1, 1);
+        let minos[3] = Point.new(0,-1);
+        return Minos.create(minos);
+    }
+    function Minos getS() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, 0);
+        let minos[1] = Point.new(1, 0);
+        let minos[2] = Point.new(1,-1);
+        let minos[3] = Point.new(0, 1);
+        return Minos.create(minos);
+    }
+    function Minos getL() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, 0);
+        let minos[1] = Point.new(0, 1);
+        let minos[2] = Point.new(0,-1);
+        let minos[3] = Point.new(1, 1);
+        return Minos.create(minos);
+    }
+    function Minos getJ() {
+        var Array minos;
+        let minos = Array.new(4);
+        let minos[0] = Point.new(0, 0);
+        let minos[1] = Point.new(0,-1);
+        let minos[2] = Point.new(0, 1);
+        let minos[3] = Point.new(1,-1);
+        return Minos.create(minos);
+    }
+}
